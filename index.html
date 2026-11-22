@@ -69,7 +69,9 @@ button:focus-visible,input:focus-visible{outline:4px solid var(--sun);outline-of
 .icon-btn:active{transform:translateY(3px);box-shadow:none}
 
 /* ---------- home ---------- */
-#home{justify-content:center;align-items:center;text-align:center;gap:22px}
+#home{justify-content:safe center;align-items:center;text-align:center;gap:22px;overflow-y:auto}
+#home .tagline{max-width:none}
+.credit{margin:0;font-style:italic;font-size:.85rem;font-weight:500;opacity:.75}
 .title{font-family:var(--display);line-height:.95;margin:0;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer}
 .title .word{display:flex;justify-content:center}
 .title .w1{font-size:clamp(3.4rem,17vw,5.6rem)}
@@ -185,7 +187,7 @@ input[type=range]{width:100%;accent-color:var(--prout-deep);height:32px}
   <!-- ACCUEIL -->
   <section class="screen" id="home">
     <h1 class="title" id="title" aria-label="Cherche et Prout" title="Touche-moi !"></h1>
-    <p class="tagline">Le jeu de cherche-et-trouve qui pète la forme !</p>
+    <p class="tagline">Le jeu de cherche-et-trouve<br>qui pète la forme !</p>
     <div class="home-actions">
       <button class="btn big green" id="btnPlay">Jouer !</button>
       <button class="btn" id="btnSettings">⚙️ Paramètres</button>
@@ -198,6 +200,7 @@ input[type=range]{width:100%;accent-color:var(--prout-deep);height:32px}
         <li>Le premier revenu près du téléphone appuie sur <b>« Je l'ai !! »</b>… et PROUT !</li>
       </ol>
     </div>
+    <p class="credit">Ce jeu vous est proposé par Stef Dieu tout puissant ! <span style="font-style:normal;display:inline-block">😁</span></p>
   </section>
 
   <!-- JEU -->
@@ -232,6 +235,7 @@ input[type=range]{width:100%;accent-color:var(--prout-deep);height:32px}
     <div class="topbar">
       <button class="icon-btn" id="btnSettingsBack" aria-label="Retour">⬅️</button>
       <h2>Paramètres</h2>
+      <button class="icon-btn" id="btnReset" aria-label="Remettre les réglages par défaut" title="Remettre les réglages par défaut">🔄</button>
     </div>
     <div class="settings-list">
 
@@ -263,13 +267,15 @@ input[type=range]{width:100%;accent-color:var(--prout-deep);height:32px}
           <span class="switch"><input type="checkbox" id="optTimer"><span></span></span>
         </div>
         <div class="setting" data-needs="timer">
-          <div class="range-row">
-            <label for="optTimerSec">Temps par carte <span class="val" id="timerVal">1 min</span></label>
-            <input type="range" id="optTimerSec" min="15" max="300" step="15">
-          </div>
+          <span class="lbl">Temps par carte</span>
+          <div class="chips" id="timerChips" role="group" aria-label="Temps par carte"></div>
         </div>
         <div class="setting" data-needs="timer">
-          <span class="lbl">Son des 10 dernières secondes</span>
+          <span class="lbl">Compte à rebours sur les dernières…</span>
+          <div class="chips" id="lastChips" role="group" aria-label="Durée du compte à rebours"></div>
+        </div>
+        <div class="setting" data-needs="timer">
+          <span class="lbl">Son du compte à rebours</span>
           <div class="chips" id="countChips" role="group" aria-label="Son du compte à rebours"></div>
         </div>
         <div class="setting" data-needs="timer">
@@ -449,10 +455,16 @@ const CARD_COLORS = ["#ff8fab","#ffb347","#ffe066","#8ce99a","#b197fc","#ff6b6b"
 const TITLE_COLORS = ["#ff5a4e","#ffd23f","#7bd23f","#ff7ad9","#ff9f1c","#a779ff","#2ee6c5","#ffffff","#5ec8ff"];
 
 /* ================== REGLAGES ================== */
-const DEFAULTS = {sound:true, volume:80, fart:"aleatoire", timer:false, timerSec:60, countdown:"bip",
-  cards:10, players:[], vibrate:true, awake:true};
+const TIMER_CHOICES = [10,15,20,30,45,60];
+const LAST_CHOICES = [5,10];
+const DEFAULTS = {sound:true, volume:100, fart:"aleatoire", timer:true, timerSec:15, countdown:"voix", lastSec:5,
+  cards:5, players:[], vibrate:true, awake:true};
 let S = Object.assign({}, DEFAULTS);
 try{ const raw = localStorage.getItem("cep-settings"); if(raw) S = Object.assign(S, JSON.parse(raw)); }catch(e){}
+// anciens réglages hors des nouveaux choix : on prend la valeur autorisée la plus proche
+const nearest = (v, list) => list.reduce((a,b)=>Math.abs(b-v)<Math.abs(a-v)?b:a);
+if(!TIMER_CHOICES.includes(S.timerSec)) S.timerSec = nearest(+S.timerSec||15, TIMER_CHOICES);
+if(!LAST_CHOICES.includes(S.lastSec)) S.lastSec = DEFAULTS.lastSec;
 function save(){ try{ localStorage.setItem("cep-settings", JSON.stringify(S)); }catch(e){} }
 
 const $ = id => document.getElementById(id);
@@ -471,9 +483,9 @@ function ac(){
     // petit écho de pièce (salle de bain !) pour que le prout ne sonne pas "dans le vide"
     try{
       reverb = AC.createConvolver();
-      const L=Math.floor(AC.sampleRate*.35), ir=AC.createBuffer(2,L,AC.sampleRate);
-      for(let ch=0;ch<2;ch++){ const r=ir.getChannelData(ch); for(let i=0;i<L;i++) r[i]=(Math.random()*2-1)*Math.pow(1-i/L,3); }
-      reverb.buffer=ir; const rg=AC.createGain(); rg.gain.value=.2; reverb.connect(rg); rg.connect(master);
+      const L=Math.floor(AC.sampleRate*.12), ir=AC.createBuffer(2,L,AC.sampleRate);
+      for(let ch=0;ch<2;ch++){ const r=ir.getChannelData(ch); for(let i=0;i<L;i++) r[i]=(Math.random()*2-1)*Math.pow(1-i/L,4); }
+      reverb.buffer=ir; const rg=AC.createGain(); rg.gain.value=.05; reverb.connect(rg); rg.connect(master);
     }catch(e){ reverb=null; }
   }
   if(AC.state==="suspended") AC.resume();
@@ -485,11 +497,11 @@ document.addEventListener("pointerdown", ()=>{ if(S.sound) ac(); }, {once:true})
 /* Prouts "physiques" : une série d'impulsions irrégulières (le clapet qui vibre),
    filtrées par des résonances de corps, avec souffle d'air, bulles et écho de pièce. */
 const FARTS = {
-  court:     ()=>({dur:rand(.28,.55), base:rand(110,170), slope:rand(-.35,.1), wobble:.25, jitter:.18, shimmer:.4, drop:.04, open:.45, noise:.35, bubbles:0, voice:1,   f:[rand(140,220),rand(380,520),rand(850,1200)]}),
-  long:      ()=>({dur:rand(1.2,2.2), base:rand(65,105),  slope:rand(-.4,.2),  wobble:.45, jitter:.14, shimmer:.35,drop:.05, open:.5,  noise:.3,  bubbles:0, voice:1,   f:[rand(120,180),rand(330,450),rand(800,1000)]}),
-  mouille:   ()=>({dur:rand(.6,1.1),  base:rand(45,75),   slope:rand(-.2,.2),  wobble:.5,  jitter:.4,  shimmer:.7, drop:.18, open:.6,  noise:.6,  bubbles:Math.round(rand(10,22)), voice:.85, f:[rand(110,160),rand(300,420),rand(700,950)]}),
-  trompette: ()=>({dur:rand(.7,1.2),  base:rand(150,240), slope:rand(.1,.45),  wobble:.2,  jitter:.06, shimmer:.2, drop:.01, open:.35, noise:.15, bubbles:0, voice:1.1, f:[rand(250,350),rand(600,800),rand(1300,1700)]}),
-  silencieux:()=>({dur:rand(1.2,1.8), base:rand(40,60),   slope:0,             wobble:.3,  jitter:.5,  shimmer:.8, drop:.5,  open:.7,  noise:1,   bubbles:0, voice:.12, f:[rand(200,300),rand(500,700),rand(1200,1600)]})
+  court:     ()=>({dur:rand(.3,.6),   base:rand(70,105),  slope:rand(-.3,.1),  wobble:.25, jitter:.16, shimmer:.4, drop:.04, open:.28, noise:.15, bubbles:0, voice:1,   f:[rand(90,130),rand(220,320),rand(550,750)]}),
+  long:      ()=>({dur:rand(1.2,2.2), base:rand(45,72),   slope:rand(-.35,.15),wobble:.4,  jitter:.13, shimmer:.35,drop:.05, open:.3,  noise:.12, bubbles:0, voice:1,   f:[rand(80,120),rand(200,300),rand(500,700)]}),
+  mouille:   ()=>({dur:rand(.6,1.1),  base:rand(35,55),   slope:rand(-.2,.2),  wobble:.5,  jitter:.35, shimmer:.7, drop:.15, open:.4,  noise:.35, bubbles:Math.round(rand(8,16)), voice:.9, f:[rand(80,110),rand(200,280),rand(450,650)]}),
+  trompette: ()=>({dur:rand(.7,1.2),  base:rand(95,140),  slope:rand(.1,.4),   wobble:.2,  jitter:.06, shimmer:.2, drop:.01, open:.25, noise:.08, bubbles:0, voice:1.1, f:[rand(150,220),rand(380,520),rand(900,1200)]}),
+  silencieux:()=>({dur:rand(1.2,1.8), base:rand(35,50),   slope:0,             wobble:.3,  jitter:.5,  shimmer:.8, drop:.5,  open:.6,  noise:1,   bubbles:0, voice:.12, f:[rand(150,250),rand(400,600),rand(1000,1400)]})
 };
 const FART_LABELS = {aleatoire:"🎲 Surprise", court:"Petit", long:"Long", mouille:"Mouillé", trompette:"Trompette", rafale:"Rafale", silencieux:"Silencieux 🤫"};
 
@@ -505,7 +517,7 @@ function renderFart(P){
   const K=10, pts=[]; let w=0;
   for(let k=0;k<=K;k++){ w+=(Math.random()-.5)*P.wobble; w*=.8; pts.push(1+w); }
   const contour=x=>{ const p=x*K, k=Math.min(K-1,Math.floor(p)), fr=p-k, s=fr*fr*(3-2*fr); return pts[k]*(1-s)+pts[k+1]*s; };
-  const R=[resonator(P.f[0],5,sr),resonator(P.f[1],4,sr),resonator(P.f[2],3,sr)], RG=[1,.6,.3];
+  const R=[resonator(P.f[0],1.8,sr),resonator(P.f[1],1.5,sr),resonator(P.f[2],1.2,sr)], RG=[.8,.45,.2];
   let next=0, start=0, plen=1, amp=0, prevFlow=0, nlp=0, pv=0;
   for(let i=0;i<len;i++){
     const t=i/sr, x=i/len;
@@ -523,7 +535,7 @@ function renderFart(P){
     const exc=(flow-prevFlow)*plen*.25; prevFlow=flow;
     nlp+=.35*((Math.random()*2-1)-nlp);
     const src=exc*P.voice + nlp*(.15+flow)*P.noise*env;
-    out[i]=src*.15 + R[0](src)*RG[0] + R[1](src)*RG[1] + R[2](src)*RG[2] + flow*P.voice*.4;
+    out[i]=src*.55 + R[0](src)*RG[0] + R[1](src)*RG[1] + R[2](src)*RG[2] + flow*P.voice*.4;
   }
   for(let b=0;b<P.bubbles;b++){ // petites bulles "blop"
     const s0=Math.floor(Math.random()*len*.95), bl=Math.floor(sr*rand(.012,.035)), f0=rand(250,700), a=rand(.15,.5);
@@ -534,7 +546,7 @@ function renderFart(P){
     }
   }
   let lp=0, peak=0;
-  for(let i=0;i<out.length;i++){ lp+=.5*(out[i]-lp); out[i]=Math.tanh(lp*1.5); peak=Math.max(peak,Math.abs(out[i])); }
+  for(let i=0;i<out.length;i++){ lp+=.7*(out[i]-lp); out[i]=Math.tanh(lp*2.2); peak=Math.max(peak,Math.abs(out[i])); }
   if(peak>0){ const g=.9/peak; for(let i=0;i<out.length;i++) out[i]*=g; }
   const buf=AC.createBuffer(1,out.length,sr); buf.getChannelData(0).set(out); return buf;
 }
@@ -679,10 +691,11 @@ function startTimer(){
   if(!S.timer) return;
   G.remaining=S.timerSec;
   renderTimer();
+  if(G.remaining<=S.lastSec){ box.classList.add("hurry"); setTimeout(()=>{ if(tick) countdownSound(G.remaining); }, 450); }
   tick=setInterval(()=>{
     G.remaining--;
     renderTimer();
-    if(G.remaining<=10 && G.remaining>0){ box.classList.add("hurry"); countdownSound(G.remaining); }
+    if(G.remaining<=S.lastSec && G.remaining>0){ box.classList.add("hurry"); countdownSound(G.remaining); }
     if(G.remaining<=0){ stopTimer(); timeUp(); }
   },1000);
 }
@@ -708,7 +721,7 @@ function gotIt(){
 }
 function timeUp(){
   G.busy=true; timeUpSound();
-  openPanel(`<div style="font-size:4rem;line-height:1">⏰</div><h3>Temps écoulé !</h3><p>Personne n'a trouvé à temps. On essaie la suivante ?</p><button class="btn big green" data-next>Carte suivante ➜</button>`);
+  openPanel(`<div style="font-size:4rem;line-height:1">⏰</div><h3>Temps écoulé !</h3><p>Personne n'a trouvé à temps.<br>On essaie la suivante ?</p><button class="btn big green" data-next>Carte suivante ➜</button>`);
 }
 function skip(){ if(!G || G.busy) return; stopTimer(); next(); }
 function next(){
@@ -735,6 +748,18 @@ $("panel").addEventListener("click", e=>{
   const b=e.target.closest("button"); if(!b) return;
   if(b.dataset.player!==undefined){ const p=S.players[+b.dataset.player]; G.scores[p]=(G.scores[p]||0)+1; next(); }
   else if(b.hasAttribute("data-next")) next();
+  else if(b.hasAttribute("data-reset")){
+    S = JSON.parse(JSON.stringify(DEFAULTS)); save();
+    if(master) master.gain.value=S.volume/100;
+    renderSettings(); closePanel(); popSound();
+  }
+  else if(b.hasAttribute("data-cancel")) closePanel();
+});
+$("btnReset").addEventListener("click", ()=>{
+  openPanel(`<div style="font-size:3.5rem;line-height:1">🔄</div><h3>Tout remettre comme au début ?</h3>
+    <p>Son, chrono, nombre de cartes…<br>La liste des joueurs sera aussi vidée.</p>
+    <button class="btn big green" data-reset>Oui, réinitialiser</button>
+    <button class="btn ghost" data-cancel>Non, annuler</button>`);
 });
 function esc(s){ return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
@@ -766,7 +791,9 @@ function refreshDisabled(){
 function renderSettings(){
   $("optSound").checked=S.sound; $("optTimer").checked=S.timer; $("optVibrate").checked=S.vibrate; $("optAwake").checked=S.awake;
   $("optVolume").value=S.volume; $("volVal").textContent=S.volume+" %";
-  $("optTimerSec").value=S.timerSec; $("timerVal").textContent=fmtTime(S.timerSec);
+  const tc={}; TIMER_CHOICES.forEach(v=>tc[v]=fmtTime(v));
+  chipGroup($("timerChips"), tc, S.timerSec, v=>{ S.timerSec=+v; save(); });
+  chipGroup($("lastChips"), {5:"5 secondes",10:"10 secondes"}, S.lastSec, v=>{ S.lastSec=+v; save(); });
   chipGroup($("fartChips"), FART_LABELS, S.fart, v=>{ S.fart=v; save(); fart(v); });
   chipGroup($("countChips"), COUNT_LABELS, S.countdown, v=>{ S.countdown=v; save(); countdownSound(3); });
   chipGroup($("cardsChips"), {5:"5",10:"10",15:"15",20:"20",all:"Toutes ("+CARDS.length+")"}, S.cards, v=>{ S.cards = v==="all"?"all":+v; save(); });
@@ -777,7 +804,6 @@ function renderSettings(){
 });
 $("optVolume").addEventListener("input", e=>{ S.volume=+e.target.value; $("volVal").textContent=S.volume+" %"; if(master) master.gain.value=S.volume/100; save(); });
 $("optVolume").addEventListener("change", ()=>fart("court"));
-$("optTimerSec").addEventListener("input", e=>{ S.timerSec=+e.target.value; $("timerVal").textContent=fmtTime(S.timerSec); save(); });
 $("testFart").addEventListener("click", ()=>fart());
 $("testCount").addEventListener("click", ()=>{
   if(S.countdown==="aucun") return;
