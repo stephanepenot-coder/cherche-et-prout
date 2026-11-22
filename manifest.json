@@ -1,0 +1,11 @@
+{
+  "name": "Cherche et Prout",
+  "short_name": "Cherche & Prout",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#7cc8f2",
+  "theme_color": "#7cc8f2",
+  "lang": "fr",
+  "icons": [{"src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}]
+}
